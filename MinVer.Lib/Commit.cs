@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace MinVer.Lib
@@ -8,7 +9,7 @@ namespace MinVer.Lib
 
         public string Sha { get; }
 
-        public string ShortSha => this.Sha[..7];
+        public string ShortSha => this.Sha[..Math.Min(7, this.Sha.Length)];
 
         public List<Commit> Parents { get; } = new List<Commit>();
     }

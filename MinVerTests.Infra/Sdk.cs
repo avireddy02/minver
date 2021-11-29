@@ -14,22 +14,20 @@ namespace MinVerTests.Infra
 {
     public static class Sdk
     {
-        private static readonly string dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        private static readonly string dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT") ?? "";
 
-        public static string Version { get; } = Environment.GetEnvironmentVariable("MINVER_TESTS_SDK");
+        public static string Version { get; } = Environment.GetEnvironmentVariable("MINVER_TESTS_SDK") ?? "";
 
-        public static async Task CreateSolution(string path, string[] projectNames, string configuration = Configuration.Current)
+        public static async Task CreateSolution(string path, IEnumerable<string> projectNames, string configuration = Configuration.Current)
         {
-            projectNames ??= Array.Empty<string>();
-
             FileSystem.EnsureEmptyDirectory(path);
 
             CreateGlobalJsonIfRequired(path);
 
             _ = await DotNet($"new sln --name test --output {path}", path).ConfigureAwait(false);
 
-            string previousProjectName = null;
-            foreach (var projectName in projectNames)
+            var previousProjectName = "";
+            foreach (var projectName in projectNames ?? Enumerable.Empty<string>())
             {
                 var projectPath = Path.Combine(path, projectName);
 
@@ -38,7 +36,7 @@ namespace MinVerTests.Infra
                 await CreateProject(projectPath, configuration, projectName).ConfigureAwait(false);
 
                 // ensure deterministic build order
-                if (previousProjectName != null)
+                if (!string.IsNullOrEmpty(previousProjectName))
                 {
                     var projectFileName = Path.Combine(path, projectName, $"{projectName}.csproj");
                     var previousProjectFileName = Path.Combine(path, previousProjectName, $"{previousProjectName}.csproj");
@@ -88,7 +86,7 @@ $@"{{
             }
         }
 
-        public static async Task<(Package, Result)> BuildProject(string path, params (string, string)[] envVars)
+        public static async Task<(Package Package, Result Result)> BuildProject(string path, params (string, string)[] envVars)
         {
             var (packages, result) = await Build(path, envVars).ConfigureAwait(false);
 
@@ -103,7 +101,7 @@ $@"{{
             _ = environmentVariables.TryAdd("NoPackageAnalysis", "true");
 
             var result = await DotNet(
-                $"build --no-restore{(!(Version?.StartsWith("2.", StringComparison.Ordinal) ?? false) ? " --nologo" : "")}",
+                $"build --no-restore{(!Version.StartsWith("2.", StringComparison.Ordinal) ? " --nologo" : "")}",
                 path,
                 environmentVariables).ConfigureAwait(false);
 
@@ -115,7 +113,7 @@ $@"{{
             return (packages.ToList(), result);
         }
 
-        private static Task<Result> DotNet(string args, string path, IDictionary<string, string> envVars = null)
+        private static Task<Result> DotNet(string args, string path, IDictionary<string, string>? envVars = null)
         {
             envVars ??= new Dictionary<string, string>();
 
@@ -130,7 +128,7 @@ $@"{{
 
         private static async Task<Package> GetPackage(string fileName)
         {
-            var extractedDirectoryName = Path.Combine(Path.GetDirectoryName(fileName), Path.GetFileNameWithoutExtension(fileName));
+            var extractedDirectoryName = Path.Combine(Path.GetDirectoryName(fileName) ?? "", Path.GetFileNameWithoutExtension(fileName));
 
             ZipFile.ExtractToDirectory(fileName, extractedDirectoryName);
 
@@ -145,7 +143,7 @@ $@"{{
             var assemblyVersion = new AssemblyVersion(systemAssemblyVersion.Major, systemAssemblyVersion.Minor, systemAssemblyVersion.Build, systemAssemblyVersion.Revision);
 
             var fileVersionInfo = FileVersionInfo.GetVersionInfo(assemblyFileName);
-            var fileVersion = new FileVersion(fileVersionInfo.FileMajorPart, fileVersionInfo.FileMinorPart, fileVersionInfo.FileBuildPart, fileVersionInfo.FilePrivatePart, fileVersionInfo.ProductVersion);
+            var fileVersion = new FileVersion(fileVersionInfo.FileMajorPart, fileVersionInfo.FileMinorPart, fileVersionInfo.FileBuildPart, fileVersionInfo.FilePrivatePart, fileVersionInfo.ProductVersion ?? "");
 
             return new Package(nuspecVersion, assemblyVersion, fileVersion);
         }
@@ -157,7 +155,7 @@ $@"{{
 
             try
             {
-                return assembly.GetName().Version;
+                return assembly.GetName().Version ?? throw new InvalidOperationException("The assembly version is null.");
             }
             finally
             {

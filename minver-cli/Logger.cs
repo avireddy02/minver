@@ -49,7 +49,7 @@ namespace MinVer
 
         public static void ErrorInvalidEnvVar(string name, string value, string validValueString)
         {
-            if (validValueString == null)
+            if (string.IsNullOrEmpty(validValueString))
             {
                 Error($"Invalid environment variable '{name}' '{value}'.");
             }
