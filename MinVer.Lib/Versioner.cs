@@ -55,11 +55,6 @@ namespace MinVer.Lib
 
             var tags = Git.GetTags(workDir, log);
 
-            return GetVersion(head, tags, tagPrefix, autoIncrement, defaultPreReleasePhase, log);
-        }
-
-        private static Version GetVersion(Commit head, IEnumerable<Tag> tags, string tagPrefix, VersionPart autoIncrement, string defaultPreReleasePhase, ILogger log)
-        {
             var tagsAndVersions = GetTagsAndVersions(tags, tagPrefix, log);
 
             var commitsChecked = new HashSet<string>();
